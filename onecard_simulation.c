@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <time.h>
 
 #define MAX_DECK_CNT 52
@@ -9,7 +10,6 @@
 #define MAX_TURN_CNT 300
 #define ACE_DRAWS 3
 #define ACE_SPADE_DRAWS 3
-#define PLAYER_METHOD 0
 
 typedef struct
 {
@@ -61,18 +61,36 @@ bool is_valid(Card floor, Card hand);
 char * get_card_name(Card card);
 Card choice_card(Hand *hand, int idx);
 Card random_choice(Hand *hand, Card floor);
-Card player_choice(Hand *hand, Card floor, int opp_cnt);
+Card player_choice(Hand *hand, Card floor, int opp_cnt, int method);
+Card opponent_choice(Hand *hand, Card floor, int method);
+Card random_attack_first(Hand *hand, Card floor);
 
 FILE *fp;
+bool verbose;
 
 int main()
 {
     bool is_player_first;
     int instances;
     int wins = 0, draws = 0;
+    int player_method, opponent_method;
+    char filename[32], curtime[16];
+
+    time_t t = time(NULL);
+    clock_t start;
     
-    fp = fopen("log.txt", "w");
-    srand(time(NULL));
+    strftime(curtime, sizeof(curtime), "%Y%m%d_%H%M%S", localtime(&t));
+    strcpy(filename, "log_");
+    strcat(filename, curtime);
+    strcat(filename, ".txt");
+
+    fp = fopen(filename, "w");
+    srand(t);
+
+    printf("Log file: %s\n", filename);
+
+    printf("Enter whether record detailed log (0: no, 1: yes):");
+    scanf("%d", &verbose);
 
     printf("Enter the number of instances:");
     scanf("%d", &instances);
@@ -80,8 +98,16 @@ int main()
     printf("Enter the player's turn (0: opponent first, 1: player first):");
     scanf("%d", &is_player_first);
 
-    fprintf(fp, "Player method: %d\n", PLAYER_METHOD);
-    fflush(fp);
+    printf("Enter the player's method:");
+    scanf("%d", &player_method);
+
+    printf("Enter the opponent's method:");
+    scanf("%d", &opponent_method);
+
+    fprintf(fp, "Player method: %d\n", player_method);
+    fprintf(fp, "Opponent method: %d\n", opponent_method);
+
+    start = clock();
 
     for (int i = 0; i < instances; i++)
     {
@@ -90,6 +116,9 @@ int main()
 
         bool is_player_turn = is_player_first;
         int turn = 0;
+
+        fclose(fp);
+        fp = fopen(filename, "a");
         
         puts("");
         printf("===== Instance: %d/%d =====\n", i + 1, instances);
@@ -104,7 +133,7 @@ int main()
         floor.cards[floor.cnt++] = deck.cards[deck.cur_idx++];
 
         fclose(fp);
-        fp = fopen("log.txt", "a");
+        fp = fopen(filename, "a");
 
         while (true)
         {
@@ -122,30 +151,33 @@ int main()
             }
             
             // Print status
-            fprintf(fp, "\n----- Turn: %d -----\n", turn);
-            fprintf(fp, "\nDeck: %d\n", deck.cnt - deck.cur_idx);
-            fputs("\nPlayer:", fp);
-            for (int i = 0; i < player.cnt; i++)
+            if (verbose)
             {
-                fprintf(fp, " %s", get_card_name(player.cards[i]));
+                fprintf(fp, "\n----- Turn: %d -----\n", turn);
+                fprintf(fp, "\nDeck: %d\n", deck.cnt - deck.cur_idx);
+                fputs("\nPlayer:", fp);
+                for (int i = 0; i < player.cnt; i++)
+                {
+                    fprintf(fp, " %s", get_card_name(player.cards[i]));
+                }
+                fputs("\nOpponent:", fp);
+                for (int i = 0; i < opponent.cnt; i++)
+                {
+                    fprintf(fp, " %s", get_card_name(opponent.cards[i]));
+                }
+                fprintf(fp, "\nFloor: %s\n", get_card_name(floor.cards[floor.cnt - 1]));
+                fprintf(fp, "%s's turn\n", is_player_turn ? "Player" : "Opponent");
             }
-            fputs("\nOpponent:", fp);
-            for (int i = 0; i < opponent.cnt; i++)
-            {
-                fprintf(fp, " %s", get_card_name(opponent.cards[i]));
-            }
-            fprintf(fp, "\nFloor: %s\n", get_card_name(floor.cards[floor.cnt - 1]));
-            fprintf(fp, "%s's turn\n", is_player_turn ? "Player" : "Opponent");
             
             if (is_player_turn)
             {
-                Card card = player_choice(&player, floor.cards[floor.cnt - 1], opponent.cnt);
+                Card card = player_choice(&player, floor.cards[floor.cnt - 1], opponent.cnt, player_method);
 
                 if (card.suit == NULL_SUIT)
                 {
                     draw_card(&deck, &floor, &player, 1);
 
-                    fputs("\nPlayer draws a card\n", fp);
+                    if (verbose) fputs("\nPlayer draws a card\n", fp);
 
                     if (player.cnt >= MAX_HAND_CNT)
                     {
@@ -160,16 +192,18 @@ int main()
                 }
                 else
                 {
+                    bool hand_full = false;
+                    
                     floor.cards[floor.cnt++] = card;
 
-                    fprintf(fp, "\nPlayer plays %s\n", get_card_name(card));
+                    if (verbose) fprintf(fp, "\nPlayer plays %s\n", get_card_name(card));
 
                     if (player.cnt == 0)
                     {
                         puts("");
                         puts("Player's hand is empty, Player wins");
 
-                        fputs("\nPlayer's hand is empty, Player wins\n", fp);
+                        fputs("\nPlayer's hand is empty\nPlayer wins\n", fp);
 
                         wins++;
                         break;
@@ -180,7 +214,7 @@ int main()
                         case ACE:
                             draw_card(&deck, &floor, &opponent, (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
 
-                            fprintf(fp, "\nOpponent draws %d cards\n", (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
+                            if (verbose) fprintf(fp, "\nOpponent draws %d cards\n", (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
 
                             if (opponent.cnt >= MAX_HAND_CNT)
                             {
@@ -189,15 +223,15 @@ int main()
 
                                 fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
 
+                                hand_full = true;
                                 wins++;
                                 break;
                             }
-                            is_player_turn = false;
                             break;
                         case TWO:
                             draw_card(&deck, &floor, &opponent, 2);
 
-                            fputs("\nOpponent draws 2 cards\n", fp);
+                            if (verbose) fputs("\nOpponent draws 2 cards\n", fp);
 
                             if (opponent.cnt >= MAX_HAND_CNT)
                             {
@@ -206,10 +240,10 @@ int main()
 
                                 fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
 
+                                hand_full = true;
                                 wins++;
                                 break;
                             }
-                            is_player_turn = false;
                             break;
                         case JACK:
                         case QUEEN:
@@ -220,16 +254,18 @@ int main()
                             is_player_turn = false;
                             break;
                     }
+
+                    if (hand_full) break;
                 }
             }
             else    // Opponent's turn
             {
-                Card card = random_choice(&opponent, floor.cards[floor.cnt - 1]);
+                Card card = opponent_choice(&opponent, floor.cards[floor.cnt - 1], opponent_method);
 
                 if (card.suit == NULL_SUIT)
                 {
                     draw_card(&deck, &floor, &opponent, 1);
-                    fputs("\nOpponent draws a card\n", fp);
+                    if (verbose) fputs("\nOpponent draws a card\n", fp);
 
                     if (opponent.cnt >= MAX_HAND_CNT)
                     {
@@ -245,9 +281,11 @@ int main()
                 }
                 else
                 {
+                    bool hand_full = false;
+                    
                     floor.cards[floor.cnt++] = card;
 
-                    fprintf(fp, "\nOpponent plays %s\n", get_card_name(card));
+                    if (verbose) fprintf(fp, "\nOpponent plays %s\n", get_card_name(card));
 
                     if (opponent.cnt == 0)
                     {
@@ -264,7 +302,7 @@ int main()
                         case ACE:
                             draw_card(&deck, &floor, &player, (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
 
-                            fprintf(fp, "\nPlayer draws %d cards\n", (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
+                            if (verbose) fprintf(fp, "\nPlayer draws %d cards\n", (floor.cards[floor.cnt - 1].suit == SPADES) ? ACE_SPADE_DRAWS : ACE_DRAWS);
 
                             if (player.cnt >= MAX_HAND_CNT)
                             {
@@ -273,14 +311,14 @@ int main()
 
                                 fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
 
+                                hand_full = true;
                                 break;
                             }
-                            is_player_turn = true;
                             break;
                         case TWO:
                             draw_card(&deck, &floor, &player, 2);
 
-                            fputs("\nPlayer draws 2 cards\n", fp);
+                            if (verbose) fputs("\nPlayer draws 2 cards\n", fp);
 
                             if (player.cnt >= MAX_HAND_CNT)
                             {
@@ -289,9 +327,9 @@ int main()
 
                                 fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
 
+                                hand_full = true;
                                 break;
                             }
-                            is_player_turn = true;
                             break;
                         case JACK:
                         case QUEEN:
@@ -302,18 +340,18 @@ int main()
                             is_player_turn = true;
                             break;
                     }
+
+                    if (hand_full) break;
                 }
             }
         }
         fclose(fp);
-        fp = fopen("log.txt", "a");
+        fp = fopen(filename, "a");
     }
-
-    fclose(fp);
-    fp = fopen("log.txt", "a");
     
     puts("");
     puts("===================================");
+    printf("%.3lf second(s) elapsed\n", (float) (clock() - start) / 1000000);
     printf("Win:  %10d out of %10d, %6.2f%%\n", wins, instances, (float) wins / instances * 100);
     printf("Draw: %10d out of %10d, %6.2f%%\n", draws, instances, (float) draws / instances * 100);
     printf("Lose: %10d out of %10d, %6.2f%%\n", instances - wins - draws, instances, (float) (instances - wins - draws) / instances * 100);
@@ -372,7 +410,7 @@ void shuffle_floor(Deck *deck, Deck *floor)
     floor->cur_idx = 0;
     floor->cnt = 1;
 
-    fputs("\nFloor is shuffled\n", fp);
+    if (verbose) fputs("\nFloor is shuffled\n", fp);
 }
 
 void draw_card(Deck *deck, Deck *floor, Hand *hand, int cnt)
@@ -472,12 +510,12 @@ Card random_choice(Hand *hand, Card floor)
     return choice_card(hand, idx);
 }
 
-Card player_choice(Hand *hand, Card floor, int opp_cnt)
+Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
 {
-    switch (PLAYER_METHOD)
+    switch (method)
     {
         case 1:
-            // choose the first valid card
+            // Choose the first valid card
             for (int i = 0; i < hand->cnt; i++)
             {
                 if (is_valid(floor, hand->cards[i]))
@@ -489,10 +527,58 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt)
             return (Card) { NULL_SUIT, NULL_RANK };
 
         case 2:
-            // TODO
+            // Attack card first
+            return random_attack_first(hand, floor);
 
         default:
             // choose random valid card
             return random_choice(hand, floor);
     }
+}
+
+Card opponent_choice(Hand *hand, Card floor, int method)
+{
+    switch (method)
+    {
+        default:
+            return random_choice(hand, floor);
+    }
+}
+
+Card random_attack_first(Hand *hand, Card floor)
+{
+    int valid_idx[hand->cnt];
+    int valid_cnt = 0;
+    int idx;
+
+    // Search for attack cards
+    for (int i = 0; i < hand->cnt; i++)
+    {
+        if (is_valid(floor, hand->cards[i]))
+        {
+            if (hand->cards[i].rank == ACE || hand->cards[i].rank == TWO)
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
+    // If there is no attack card, search for other cards
+    if (valid_cnt == 0)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
+    // If there is no valid card, return NULL card
+    if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
+
+    idx = valid_idx[rand() % valid_cnt];
+
+    return choice_card(hand, idx);
 }

@@ -1,3 +1,12 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
 # Prerequisites
 *.d
 
@@ -51,4 +60,4 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-log.txt
+log_*.txt
