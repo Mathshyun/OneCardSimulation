@@ -66,6 +66,7 @@ Card opponent_choice(Hand *hand, Card floor, int method);
 Card random_attack_first(Hand *hand, Card floor);
 
 FILE *fp;
+bool process;
 bool verbose;
 
 int main()
@@ -73,7 +74,10 @@ int main()
     bool is_player_first;
     int instances;
     int wins = 0, draws = 0;
+    int player_empty = 0, opponent_empty = 0;
+    int player_full = 0, opponent_full = 0;
     int player_method, opponent_method;
+    int x;
     char filename[32], curtime[16];
 
     time_t t = time(NULL);
@@ -89,14 +93,19 @@ int main()
 
     printf("Log file: %s\n", filename);
 
-    printf("Enter whether record detailed log (0: no, 1: yes):");
-    scanf("%d", &verbose);
+    printf("Enter how to write log (0: result only, 1: simple, 2: detailed):");
+    scanf("%d", &x);
+
+    process = (x > 0);
+    verbose = (x > 1);
 
     printf("Enter the number of instances:");
     scanf("%d", &instances);
 
     printf("Enter the player's turn (0: opponent first, 1: player first):");
-    scanf("%d", &is_player_first);
+    scanf("%d", &x);
+
+    is_player_first = (x == 1);
 
     printf("Enter the player's method:");
     scanf("%d", &player_method);
@@ -123,7 +132,7 @@ int main()
         puts("");
         printf("===== Instance: %d/%d =====\n", i + 1, instances);
 
-        fprintf(fp, "\n===== Instance: %d/%d =====\n", i + 1, instances);
+        if (process) fprintf(fp, "\n===== Instance: %d/%d =====\n", i + 1, instances);
 
         initialize_deck(&deck);
 
@@ -144,7 +153,7 @@ int main()
                 puts("");
                 puts("Draw");
 
-                fputs("\nDraw\n", fp);
+                if (process) fputs("\nDraw\n", fp);
 
                 draws++;
                 break;
@@ -184,8 +193,9 @@ int main()
                         puts("");
                         puts("Player's hand is full, Player loses");
 
-                        fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
+                        if (process) fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
 
+                        player_full++;
                         break;
                     }
                     is_player_turn = false;
@@ -203,9 +213,10 @@ int main()
                         puts("");
                         puts("Player's hand is empty, Player wins");
 
-                        fputs("\nPlayer's hand is empty\nPlayer wins\n", fp);
+                        if (process) fputs("\nPlayer's hand is empty\nPlayer wins\n", fp);
 
                         wins++;
+                        player_empty++;
                         break;
                     }
 
@@ -221,10 +232,11 @@ int main()
                                 puts("");
                                 puts("Opponent's hand is full, Player wins");
 
-                                fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
+                                if (process) fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
 
                                 hand_full = true;
                                 wins++;
+                                opponent_full++;
                                 break;
                             }
                             break;
@@ -238,10 +250,11 @@ int main()
                                 puts("");
                                 puts("Opponent's hand is full, Player wins");
 
-                                fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
+                                if (process) fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
 
                                 hand_full = true;
                                 wins++;
+                                opponent_full++;
                                 break;
                             }
                             break;
@@ -272,9 +285,10 @@ int main()
                         puts("");
                         puts("Opponent's hand is full, Player wins");
 
-                        fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
+                        if (process) fputs("\nOpponent's hand is full\nPlayer wins\n", fp);
 
                         wins++;
+                        opponent_full++;
                         break;
                     }
                     is_player_turn = true;
@@ -292,8 +306,9 @@ int main()
                         puts("");
                         puts("Opponent's hand is empty, Player loses");
 
-                        fputs("\nOpponent's hand is empty\nPlayer loses\n", fp);
+                        if (process) fputs("\nOpponent's hand is empty\nPlayer loses\n", fp);
 
+                        opponent_empty++;
                         break;
                     }
 
@@ -309,9 +324,10 @@ int main()
                                 puts("");
                                 puts("Player's hand is full, Player loses");
 
-                                fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
+                                if (process) fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
 
                                 hand_full = true;
+                                player_full++;
                                 break;
                             }
                             break;
@@ -325,9 +341,10 @@ int main()
                                 puts("");
                                 puts("Player's hand is full, Player loses");
 
-                                fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
+                                if (process) fputs("\nPlayer's hand is full\nPlayer loses\n", fp);
 
                                 hand_full = true;
+                                player_full++;
                                 break;
                             }
                             break;
@@ -350,16 +367,35 @@ int main()
     }
     
     puts("");
-    puts("===================================");
+    puts("==================================================");
     printf("%.3lf second(s) elapsed\n", (float) (clock() - start) / 1000000);
-    printf("Win:  %10d out of %10d, %6.2f%%\n", wins, instances, (float) wins / instances * 100);
-    printf("Draw: %10d out of %10d, %6.2f%%\n", draws, instances, (float) draws / instances * 100);
-    printf("Lose: %10d out of %10d, %6.2f%%\n", instances - wins - draws, instances, (float) (instances - wins - draws) / instances * 100);
+    puts("");
+    printf("Win:                           %10d, %6.2f%%\n", wins,  (float) wins / instances * 100);
+    printf("  by emptying player's hand:   %10d, %6.2f%%\n", player_empty,  (float) player_empty / instances * 100);
+    printf("  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full,  (float) opponent_full / instances * 100);
+    puts("");
+    printf("Lose:                          %10d, %6.2f%%\n", instances - wins - draws,  (float) (instances - wins - draws) / instances * 100);
+    printf("  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty,  (float) opponent_empty / instances * 100);
+    printf("  by filling player's hand:    %10d, %6.2f%%\n", player_full,  (float) player_full / instances * 100);
+    puts("");
+    printf("Draw:                          %10d, %6.2f%%\n", draws,  (float) draws / instances * 100);
+    puts("");
+    puts("--------------------------------------------------");
+    printf("Total:                         %10d, 100.00%%\n", instances);
 
-    fputs("\n===================================\n", fp);
-    fprintf(fp, "Win:  %10d out of %10d, %6.2f%%\n", wins, instances, (float) wins / instances * 100);
-    fprintf(fp, "Draw: %10d out of %10d, %6.2f%%\n", draws, instances, (float) draws / instances * 100);
-    fprintf(fp, "Lose: %10d out of %10d, %6.2f%%\n", instances - wins - draws, instances, (float) (instances - wins - draws) / instances * 100);
+
+    fputs("\n==================================================\n\n", fp);
+    fprintf(fp, "Win:                           %10d, %6.2f%%\n", wins,  (float) wins / instances * 100);
+    fprintf(fp, "  by emptying player's hand:   %10d, %6.2f%%\n", player_empty,  (float) player_empty / instances * 100);
+    fprintf(fp, "  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full,  (float) opponent_full / instances * 100);
+    fputs("\n", fp);
+    fprintf(fp, "Lose:                          %10d, %6.2f%%\n", instances - wins - draws,  (float) (instances - wins - draws) / instances * 100);
+    fprintf(fp, "  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty,  (float) opponent_empty / instances * 100);
+    fprintf(fp, "  by filling player's hand:    %10d, %6.2f%%\n", player_full,  (float) player_full / instances * 100);
+    fputs("\n", fp);
+    fprintf(fp, "Draw:                          %10d, %6.2f%%\n", draws,  (float) draws / instances * 100);
+    fputs("\n--------------------------------------------------\n", fp);
+    fprintf(fp, "Total:                         %10d, 100.00%%\n", instances);
 
     fclose(fp);
     return 0;
