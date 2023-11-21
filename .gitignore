@@ -61,3 +61,5 @@ Mkfile.old
 dkms.conf
 
 log_*.txt
+
+.DS_Store
