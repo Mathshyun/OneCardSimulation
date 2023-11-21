@@ -59,15 +59,17 @@ void shuffle_floor(Deck *deck, Deck *floor);
 void draw_card(Deck *deck, Deck *floor, Hand *hand, int cnt);
 bool is_valid(Card floor, Card hand);
 char * get_card_name(Card card);
-Card choice_card(Hand *hand, int idx);
-Card random_choice(Hand *hand, Card floor);
+Card play_card(Hand *hand, int idx);
+Card choice_random(Hand *hand, Card floor);
 Card player_choice(Hand *hand, Card floor, int opp_cnt, int method);
 Card opponent_choice(Hand *hand, Card floor, int method);
-Card random_attack_first(Hand *hand, Card floor);
+Card choice_attack(Hand *hand, Card floor);
+Card choice_attack_responsive(Hand *hand, Card floor, int opp_cnt, int thres);
 
 FILE *fp;
 bool process;
 bool verbose;
+int attack_threshold;
 
 int main()
 {
@@ -110,11 +112,20 @@ int main()
     printf("Enter the player's method:");
     scanf("%d", &player_method);
 
+    if (player_method == 3) // Attack responsive
+    {
+        printf("Enter the attack threshold:");
+        scanf("%d", &attack_threshold);
+
+        fprintf(fp, "Attack threshold: %d\n", attack_threshold);
+    }
+
     printf("Enter the opponent's method:");
     scanf("%d", &opponent_method);
 
     fprintf(fp, "Player method: %d\n", player_method);
     fprintf(fp, "Opponent method: %d\n", opponent_method);
+    fprintf(fp, "%s first\n", is_player_first ? "Player" : "Opponent");
 
     start = clock();
 
@@ -198,6 +209,7 @@ int main()
                         player_full++;
                         break;
                     }
+                    
                     is_player_turn = false;
                 }
                 else
@@ -239,6 +251,8 @@ int main()
                                 opponent_full++;
                                 break;
                             }
+
+                            is_player_turn = false;
                             break;
                         case TWO:
                             draw_card(&deck, &floor, &opponent, 2);
@@ -257,6 +271,8 @@ int main()
                                 opponent_full++;
                                 break;
                             }
+
+                            is_player_turn = false;
                             break;
                         case JACK:
                         case QUEEN:
@@ -291,6 +307,7 @@ int main()
                         opponent_full++;
                         break;
                     }
+
                     is_player_turn = true;
                 }
                 else
@@ -330,6 +347,8 @@ int main()
                                 player_full++;
                                 break;
                             }
+
+                            is_player_turn = true;
                             break;
                         case TWO:
                             draw_card(&deck, &floor, &player, 2);
@@ -347,6 +366,8 @@ int main()
                                 player_full++;
                                 break;
                             }
+
+                            is_player_turn = true;
                             break;
                         case JACK:
                         case QUEEN:
@@ -512,7 +533,7 @@ char * get_card_name(Card card)
     return name;
 }
 
-Card choice_card(Hand *hand, int idx)
+Card play_card(Hand *hand, int idx)
 {
     Card temp = hand->cards[idx];
 
@@ -525,7 +546,7 @@ Card choice_card(Hand *hand, int idx)
     return temp;
 }
 
-Card random_choice(Hand *hand, Card floor)
+Card choice_random(Hand *hand, Card floor)
 {
     int valid_idx[hand->cnt];
     int valid_cnt = 0;
@@ -543,7 +564,7 @@ Card random_choice(Hand *hand, Card floor)
 
     idx = valid_idx[rand() % valid_cnt];
 
-    return choice_card(hand, idx);
+    return play_card(hand, idx);
 }
 
 Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
@@ -556,7 +577,7 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
             {
                 if (is_valid(floor, hand->cards[i]))
                 {
-                    return choice_card(hand, i);
+                    return play_card(hand, i);
                 }
             }
 
@@ -564,11 +585,15 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
 
         case 2:
             // Attack card first
-            return random_attack_first(hand, floor);
+            return choice_attack(hand, floor);
+        
+        case 3:
+            // Attack card first, responsive
+            return choice_attack_responsive(hand, floor, opp_cnt, attack_threshold);
 
         default:
             // choose random valid card
-            return random_choice(hand, floor);
+            return choice_random(hand, floor);
     }
 }
 
@@ -577,11 +602,11 @@ Card opponent_choice(Hand *hand, Card floor, int method)
     switch (method)
     {
         default:
-            return random_choice(hand, floor);
+            return choice_random(hand, floor);
     }
 }
 
-Card random_attack_first(Hand *hand, Card floor)
+Card choice_attack(Hand *hand, Card floor)
 {
     int valid_idx[hand->cnt];
     int valid_cnt = 0;
@@ -616,5 +641,44 @@ Card random_attack_first(Hand *hand, Card floor)
 
     idx = valid_idx[rand() % valid_cnt];
 
-    return choice_card(hand, idx);
+    return play_card(hand, idx);
+}
+
+Card choice_attack_responsive(Hand *hand, Card floor, int opp_cnt, int thres)
+{
+    int valid_idx[hand->cnt];
+    int valid_cnt = 0;
+    int idx;
+
+    // Search for attack cards
+    if (opp_cnt <= thres)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                if (hand->cards[i].rank == ACE || hand->cards[i].rank == TWO)
+                {
+                    valid_idx[valid_cnt++] = i;
+                }
+            }
+        }
+    }
+
+    if (valid_cnt == 0)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
+    if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
+
+    idx = valid_idx[rand() % valid_cnt];
+
+    return play_card(hand, idx);
 }
