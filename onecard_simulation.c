@@ -66,6 +66,7 @@ Card opponent_choice(Hand *hand, Card floor, int method);
 Card choice_attack(Hand *hand, Card floor);
 Card choice_attack_responsive(Hand *hand, Card floor, int opp_cnt, int thres);
 Card choice_nonattack(Hand *hand, Card floor);
+Card choice_nonattack_responsive(Hand *hand, Card floor, int opp_cnt, int thres);
 
 FILE *fp;
 bool process;
@@ -113,12 +114,10 @@ int main()
     printf("Enter the player's method:");
     scanf("%d", &player_method);
 
-    if (player_method == 3) // Attack responsive
+    if (player_method == 3 || player_method == 5) // Attack responsive
     {
         printf("Enter the attack threshold:");
         scanf("%d", &attack_threshold);
-
-        fprintf(fp, "Attack threshold: %d\n", attack_threshold);
     }
 
     printf("Enter the opponent's method:");
@@ -597,6 +596,10 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
             // Non-attack card first
             return choice_nonattack(hand, floor);
         
+        case 5:
+            // Non-attack card first, responsive
+            return choice_nonattack_responsive(hand, floor, opp_cnt, attack_threshold);
+        
         default:
             // choose random valid card
             return choice_random(hand, floor);
@@ -720,6 +723,64 @@ Card choice_nonattack(Hand *hand, Card floor)
     }
 
     // If there is no valid card, return NULL card
+    if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
+
+    idx = valid_idx[rand() % valid_cnt];
+
+    return play_card(hand, idx);
+}
+
+Card choice_nonattack_responsive(Hand *hand, Card floor, int opp_cnt, int thres)
+{
+    int valid_idx[hand->cnt];
+    int valid_cnt = 0;
+    int idx;
+
+    // Search for attack cards
+    if (opp_cnt <= thres)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                if (hand->cards[i].rank == ACE || hand->cards[i].rank == TWO)
+                {
+                    valid_idx[valid_cnt++] = i;
+                }
+            }
+        }
+    }
+
+    // Search for non-attack cards
+    else
+    {
+        if (opp_cnt > thres)
+        {
+            for (int i = 0; i < hand->cnt; i++)
+            {
+                if (is_valid(floor, hand->cards[i]))
+                {
+                    if (hand->cards[i].rank != ACE && hand->cards[i].rank != TWO)
+                    {
+                        valid_idx[valid_cnt++] = i;
+                    }
+                }
+            }
+        }
+    }
+
+    // Search for other cards
+    if (valid_cnt == 0)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
     if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
 
     idx = valid_idx[rand() % valid_cnt];

@@ -1,0 +1,18 @@
+Player method: 3, attack threshold: 1
+Opponent method: 0
+Player first
+
+==================================================
+
+Win:                              5208200,  52.08%
+  by emptying player's hand:      5080378,  50.80%
+  by filling opponent's hand:      127822,   1.28%
+
+Lose:                             4678502,  46.79%
+  by emptying opponent's hand:    4555906,  45.56%
+  by filling player's hand:        122596,   1.23%
+
+Draw:                              113298,   1.13%
+
+--------------------------------------------------
+Total:                           10000000, 100.00%

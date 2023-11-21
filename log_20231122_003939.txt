@@ -1,0 +1,18 @@
+Player method: 2
+Opponent method: 0
+Player first
+
+==================================================
+
+Win:                              5318058,  53.18%
+  by emptying player's hand:      5145858,  51.46%
+  by filling opponent's hand:      172200,   1.72%
+
+Lose:                             4593151,  45.93%
+  by emptying opponent's hand:    4449081,  44.49%
+  by filling player's hand:        144070,   1.44%
+
+Draw:                               88791,   0.89%
+
+--------------------------------------------------
+Total:                           10000000, 100.00%
