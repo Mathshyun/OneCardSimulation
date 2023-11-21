@@ -65,11 +65,12 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt, int method);
 Card opponent_choice(Hand *hand, Card floor, int method);
 Card choice_attack(Hand *hand, Card floor);
 Card choice_attack_responsive(Hand *hand, Card floor, int opp_cnt, int thres);
+Card choice_nonattack(Hand *hand, Card floor);
 
 FILE *fp;
 bool process;
 bool verbose;
-int attack_threshold;
+int attack_threshold = 0;
 
 int main()
 {
@@ -123,7 +124,8 @@ int main()
     printf("Enter the opponent's method:");
     scanf("%d", &opponent_method);
 
-    fprintf(fp, "Player method: %d\n", player_method);
+    if (attack_threshold) fprintf(fp, "Player method: %d, attack threshold: %d\n", player_method, attack_threshold);
+    else fprintf(fp, "Player method: %d\n", player_method);
     fprintf(fp, "Opponent method: %d\n", opponent_method);
     fprintf(fp, "%s first\n", is_player_first ? "Player" : "Opponent");
 
@@ -391,30 +393,30 @@ int main()
     puts("==================================================");
     printf("%.3lf second(s) elapsed\n", (float) (clock() - start) / 1000000);
     puts("");
-    printf("Win:                           %10d, %6.2f%%\n", wins,  (float) wins / instances * 100);
-    printf("  by emptying player's hand:   %10d, %6.2f%%\n", player_empty,  (float) player_empty / instances * 100);
-    printf("  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full,  (float) opponent_full / instances * 100);
+    printf("Win:                           %10d, %6.2f%%\n", wins, (float) wins / instances * 100);
+    printf("  by emptying player's hand:   %10d, %6.2f%%\n", player_empty, (float) player_empty / instances * 100);
+    printf("  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full, (float) opponent_full / instances * 100);
     puts("");
-    printf("Lose:                          %10d, %6.2f%%\n", instances - wins - draws,  (float) (instances - wins - draws) / instances * 100);
-    printf("  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty,  (float) opponent_empty / instances * 100);
-    printf("  by filling player's hand:    %10d, %6.2f%%\n", player_full,  (float) player_full / instances * 100);
+    printf("Lose:                          %10d, %6.2f%%\n", instances - wins - draws, (float) (instances - wins - draws) / instances * 100);
+    printf("  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty, (float) opponent_empty / instances * 100);
+    printf("  by filling player's hand:    %10d, %6.2f%%\n", player_full, (float) player_full / instances * 100);
     puts("");
-    printf("Draw:                          %10d, %6.2f%%\n", draws,  (float) draws / instances * 100);
+    printf("Draw:                          %10d, %6.2f%%\n", draws, (float) draws / instances * 100);
     puts("");
     puts("--------------------------------------------------");
     printf("Total:                         %10d, 100.00%%\n", instances);
 
 
     fputs("\n==================================================\n\n", fp);
-    fprintf(fp, "Win:                           %10d, %6.2f%%\n", wins,  (float) wins / instances * 100);
-    fprintf(fp, "  by emptying player's hand:   %10d, %6.2f%%\n", player_empty,  (float) player_empty / instances * 100);
-    fprintf(fp, "  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full,  (float) opponent_full / instances * 100);
+    fprintf(fp, "Win:                           %10d, %6.2f%%\n", wins, (float) wins / instances * 100);
+    fprintf(fp, "  by emptying player's hand:   %10d, %6.2f%%\n", player_empty, (float) player_empty / instances * 100);
+    fprintf(fp, "  by filling opponent's hand:  %10d, %6.2f%%\n", opponent_full, (float) opponent_full / instances * 100);
     fputs("\n", fp);
-    fprintf(fp, "Lose:                          %10d, %6.2f%%\n", instances - wins - draws,  (float) (instances - wins - draws) / instances * 100);
-    fprintf(fp, "  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty,  (float) opponent_empty / instances * 100);
-    fprintf(fp, "  by filling player's hand:    %10d, %6.2f%%\n", player_full,  (float) player_full / instances * 100);
+    fprintf(fp, "Lose:                          %10d, %6.2f%%\n", instances - wins - draws, (float) (instances - wins - draws) / instances * 100);
+    fprintf(fp, "  by emptying opponent's hand: %10d, %6.2f%%\n", opponent_empty, (float) opponent_empty / instances * 100);
+    fprintf(fp, "  by filling player's hand:    %10d, %6.2f%%\n", player_full, (float) player_full / instances * 100);
     fputs("\n", fp);
-    fprintf(fp, "Draw:                          %10d, %6.2f%%\n", draws,  (float) draws / instances * 100);
+    fprintf(fp, "Draw:                          %10d, %6.2f%%\n", draws, (float) draws / instances * 100);
     fputs("\n--------------------------------------------------\n", fp);
     fprintf(fp, "Total:                         %10d, 100.00%%\n", instances);
 
@@ -591,6 +593,10 @@ Card player_choice(Hand *hand, Card floor, int opp_cnt, int method)
             // Attack card first, responsive
             return choice_attack_responsive(hand, floor, opp_cnt, attack_threshold);
 
+        case 4:
+            // Non-attack card first
+            return choice_nonattack(hand, floor);
+        
         default:
             // choose random valid card
             return choice_random(hand, floor);
@@ -676,6 +682,44 @@ Card choice_attack_responsive(Hand *hand, Card floor, int opp_cnt, int thres)
         }
     }
 
+    if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
+
+    idx = valid_idx[rand() % valid_cnt];
+
+    return play_card(hand, idx);
+}
+
+Card choice_nonattack(Hand *hand, Card floor)
+{
+    int valid_idx[hand->cnt];
+    int valid_cnt = 0;
+    int idx;
+
+    // Search for non-attack cards
+    for (int i = 0; i < hand->cnt; i++)
+    {
+        if (is_valid(floor, hand->cards[i]))
+        {
+            if (hand->cards[i].rank != ACE && hand->cards[i].rank != TWO)
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
+    // If there is no non-attack card, search for other cards
+    if (valid_cnt == 0)
+    {
+        for (int i = 0; i < hand->cnt; i++)
+        {
+            if (is_valid(floor, hand->cards[i]))
+            {
+                valid_idx[valid_cnt++] = i;
+            }
+        }
+    }
+
+    // If there is no valid card, return NULL card
     if (valid_cnt == 0) return (Card) { NULL_SUIT, NULL_RANK };
 
     idx = valid_idx[rand() % valid_cnt];
